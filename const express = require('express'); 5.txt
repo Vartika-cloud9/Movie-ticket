@@ -1,0 +1,32 @@
+const express = require('express');
+const Movie = require('../models/Movie');
+const authMiddleware = require('../middleware/auth');
+const router = express.Router();
+
+// TheaterOwner can create a new movie
+router.post('/create', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'TheaterOwner') {
+    return res.status(403).json({ msg: 'Access denied. Only TheaterOwners can create movies.' });
+  }
+
+  const { title, description } = req.body;
+  try {
+    const movie = new Movie({ title, description, owner: req.user.id });
+    await movie.save();
+    res.json(movie);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+// Get all movies
+router.get('/', async (req, res) => {
+  try {
+    const movies = await Movie.find();
+    res.json(movies);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+module.exports = router;

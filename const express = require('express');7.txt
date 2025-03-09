@@ -1,0 +1,42 @@
+const express = require('express');
+const Booking = require('../models/Booking');
+const Show = require('../models/Show');
+const authMiddleware = require('../middleware/auth');
+const router = express.Router();
+
+router.post('/book', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'User') {
+    return res.status(403).json({ msg: 'Access denied. Only Users can book tickets.' });
+  }
+
+  const { showId, seats } = req.body;
+
+  try {
+    const show = await Show.findById(showId);
+    if (!show) return res.status(404).json({ msg: 'Show not found' });
+
+    if (seats > (show.totalSeats - show.bookedSeats)) {
+      return res.status(400).json({ msg: 'Not enough available seats' });
+    }
+
+    const dynamicPrice = show.basePrice * (1 + (show.bookedSeats / show.totalSeats));
+    const totalPrice = dynamicPrice * seats;
+
+    const booking = new Booking({
+      show: showId,
+      user: req.user.id,
+      seats,
+      totalPrice,
+    });
+
+    show.bookedSeats += seats;
+    await show.save();
+    await booking.save();
+
+    res.json({ booking });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+module.exports = router;
